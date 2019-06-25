@@ -26,6 +26,11 @@ class DataclassSerializer(serializers.Serializer):
         timedelta: fields.DurationField,
     }
 
+    def __init__(self, *args, **kwargs):
+        self.allow_nested_updates = kwargs.pop("allow_nested_updates", True)
+        self.allow_create = kwargs.pop("allow_create", True)
+        super().__init__(*args, **kwargs)
+
     @property
     def model(self):
         assert hasattr(self.Meta, "model"), 'Class {serializer_class} missing "Meta.model" attribute'.format(
@@ -165,10 +170,28 @@ class DataclassSerializer(serializers.Serializer):
         if field_info.type in self.serializer_field_mapping:
             return self.build_standard_field(field_name, field_info)
 
+        return self.build_nested_field(field_name, field_info, depth)
+
     def build_standard_field(self, field_name, field_info):
         return self.serializer_field_mapping[field_info.type](**self.get_kwargs_for_field(field_info))
 
+    def build_nested_field(self, field_name, field_info, nested_depth):
+        target_model = field_info.type
+
+        class NestedSerializer(self.__class__):
+            class Meta:
+                model = target_model
+                fields = "__all__"  # TODO: figure out what fields
+                depth = max(0, nested_depth - 1)
+
+        return type(str(target_model.__name__ + "Serializer"), (NestedSerializer,), {})(
+            **self.get_kwargs_for_nested_field(field_info)
+        )
+
     def get_kwargs_for_field(self, field_info):
+        return {"required": False}
+
+    def get_kwargs_for_nested_field(self, field_info):
         return {"required": False}
 
     def update_attribute(self, instance, field, value):
@@ -178,7 +201,7 @@ class DataclassSerializer(serializers.Serializer):
         else:
             setattr(instance, field.source, value)
 
-    def get_object(self, validated_data, child_instance):
+    def get_object(self, validated_data, instance):
         if validated_data is None:
             instance = None
 

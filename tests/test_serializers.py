@@ -16,6 +16,18 @@ class User:
     email: str = da.field(default=None)
 
 
+@da.dataclass
+class Point:
+    x: int = da.field(default=None)
+    y: int = da.field(default=None)
+
+
+@da.dataclass
+class Line:
+    a: Point = da.field(default=None)
+    b: Point = da.field(default=None)
+
+
 class TestModelSerializer(SimpleTestCase):
     def test_happy_path(self):
         class Serializer(DataclassSerializer):
@@ -89,3 +101,15 @@ class TestModelSerializer(SimpleTestCase):
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": "some@email.com"})
+
+    def test_nested(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+
+        serializer = Serializer(data={"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
+        serializer.is_valid()
+        line = serializer.save()
+
+        self.assertDictEqual(da.asdict(line), {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
