@@ -7,6 +7,7 @@ from rest_dataclasses.serializers import DataclassSerializer
 from django.test import SimpleTestCase
 
 from rest_framework import fields
+from rest_framework.exceptions import ValidationError
 
 
 @da.dataclass
@@ -36,7 +37,7 @@ class TestModelSerializer(SimpleTestCase):
                 fields = "__all__"
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": "some@email.com"})
@@ -49,7 +50,7 @@ class TestModelSerializer(SimpleTestCase):
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
         with self.assertRaisesMessage(TypeError, 'The `fields` option must be a list or tuple or "__all__". Got str.'):
-            serializer.is_valid()
+            serializer.is_valid(raise_exception=True)
 
     def test_bad_exclude(self):
         class Serializer(DataclassSerializer):
@@ -59,7 +60,7 @@ class TestModelSerializer(SimpleTestCase):
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
         with self.assertRaisesMessage(TypeError, "The `exclude` option must be a list or tuple. Got str."):
-            serializer.is_valid()
+            serializer.is_valid(raise_exception=True)
 
     def test_exclude(self):
         class Serializer(DataclassSerializer):
@@ -68,7 +69,7 @@ class TestModelSerializer(SimpleTestCase):
                 exclude = ("name",)
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": None, "email": "some@email.com"})
@@ -82,7 +83,7 @@ class TestModelSerializer(SimpleTestCase):
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
         with self.assertRaisesMessage(TypeError, "The `read_only_fields` option must be a list or tuple. Got str."):
-            serializer.is_valid()
+            serializer.is_valid(raise_exception=True)
 
     def test_read_only_fields(self):
         class Serializer(DataclassSerializer):
@@ -92,7 +93,7 @@ class TestModelSerializer(SimpleTestCase):
                 read_only_fields = ("name",)
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": None, "email": "some@email.com"})
@@ -104,7 +105,7 @@ class TestModelSerializer(SimpleTestCase):
                 fields = ("id", "name")
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": None})
@@ -122,7 +123,7 @@ class TestModelSerializer(SimpleTestCase):
             AssertionError,
             "The field 'name' was declared on serializer Serializer, but has not been included in the 'fields' option.",
         ):
-            serializer.is_valid()
+            serializer.is_valid(raise_exception=True)
 
     def test_custom_setter(self):
         class Serializer(DataclassSerializer):
@@ -134,7 +135,7 @@ class TestModelSerializer(SimpleTestCase):
                 instance.name = value
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": None, "name": "shosca", "email": None})
@@ -148,7 +149,7 @@ class TestModelSerializer(SimpleTestCase):
                 fields = "__all__"
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": "some@email.com"})
@@ -160,7 +161,7 @@ class TestModelSerializer(SimpleTestCase):
                 fields = "__all__"
 
         serializer = Serializer(data={"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         line = serializer.save()
 
         self.assertDictEqual(da.asdict(line), {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
@@ -174,7 +175,7 @@ class TestModelSerializer(SimpleTestCase):
         instance = Line(a=Point(x=1, y=2), b=Point(x=3, y=4))
 
         serializer = Serializer(instance, data={"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}}, partial=True)
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         line = serializer.save()
 
         self.assertIs(instance, line)
@@ -191,10 +192,43 @@ class TestModelSerializer(SimpleTestCase):
         instance = Line()
 
         serializer = Serializer(instance, data={"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, partial=True)
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
         line = serializer.save()
 
         self.assertIs(instance, line)
         self.assertIsInstance(line.a, Point)
         self.assertIsInstance(line.b, Point)
         self.assertDictEqual(da.asdict(line), {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
+
+    def test_nested_none(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+                extra_kwargs = {"a": {"allow_null": True}, "b": {"allow_null": True}}
+
+        instance = Line(a=Point(x=1, y=2), b=Point(x=3, y=4))
+
+        serializer = Serializer(instance, data={"a": None, "b": None}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        line = serializer.save()
+
+        self.assertIs(instance, line)
+        self.assertIsNone(line.a)
+        self.assertIsNone(line.b)
+        self.assertDictEqual(da.asdict(line), {"a": None, "b": None})
+
+    def test_nested_none_allow_create_false(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+                extra_kwargs = {"a": {"allow_null": False, "allow_create": False}, "b": {"allow_null": False}}
+
+        instance = Line()
+
+        serializer = Serializer(instance, data={"a": {}, "b": {}}, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        with self.assertRaises(ValidationError):
+            serializer.save()
