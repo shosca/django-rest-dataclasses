@@ -189,10 +189,20 @@ class DataclassSerializer(serializers.Serializer):
         )
 
     def get_kwargs_for_field(self, field_info):
-        return {"required": False}
+        kwargs = {"required": False}
+
+        extra_kwargs = self.get_extra_kwargs()
+        kwargs.update(extra_kwargs.get(field_info.name, {}))
+
+        return kwargs
 
     def get_kwargs_for_nested_field(self, field_info):
-        return {"required": False}
+        kwargs = {"required": False}
+
+        extra_kwargs = self.get_extra_kwargs()
+        kwargs.update(extra_kwargs.get(field_info.name, {}))
+
+        return kwargs
 
     def update_attribute(self, instance, field, value):
         field_setter = getattr(self, "set_" + field.field_name, None)

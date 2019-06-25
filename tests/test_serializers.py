@@ -61,6 +61,42 @@ class TestModelSerializer(SimpleTestCase):
         with self.assertRaisesMessage(TypeError, "The `exclude` option must be a list or tuple. Got str."):
             serializer.is_valid()
 
+    def test_exclude(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                exclude = ("name",)
+
+        serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
+        serializer.is_valid()
+        user = serializer.save()
+
+        self.assertDictEqual(da.asdict(user), {"id": 1, "name": None, "email": "some@email.com"})
+
+    def test_read_only_fields_bad(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                fields = "__all__"
+                read_only_fields = "name"
+
+        serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
+        with self.assertRaisesMessage(TypeError, "The `read_only_fields` option must be a list or tuple. Got str."):
+            serializer.is_valid()
+
+    def test_read_only_fields(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                fields = "__all__"
+                read_only_fields = ("name",)
+
+        serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
+        serializer.is_valid()
+        user = serializer.save()
+
+        self.assertDictEqual(da.asdict(user), {"id": 1, "name": None, "email": "some@email.com"})
+
     def test_with_fields(self):
         class Serializer(DataclassSerializer):
             class Meta:
@@ -88,6 +124,21 @@ class TestModelSerializer(SimpleTestCase):
         ):
             serializer.is_valid()
 
+    def test_custom_setter(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                fields = ("name",)
+
+            def set_name(self, instance, field_name, value):
+                instance.name = value
+
+        serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
+        serializer.is_valid()
+        user = serializer.save()
+
+        self.assertDictEqual(da.asdict(user), {"id": None, "name": "shosca", "email": None})
+
     def test_declared_field(self):
         class Serializer(DataclassSerializer):
             name = fields.CharField(required=False)
@@ -102,7 +153,7 @@ class TestModelSerializer(SimpleTestCase):
 
         self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": "some@email.com"})
 
-    def test_nested(self):
+    def test_nested_create(self):
         class Serializer(DataclassSerializer):
             class Meta:
                 model = Line
@@ -112,4 +163,38 @@ class TestModelSerializer(SimpleTestCase):
         serializer.is_valid()
         line = serializer.save()
 
+        self.assertDictEqual(da.asdict(line), {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
+
+    def test_nested_inplace_update(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+
+        instance = Line(a=Point(x=1, y=2), b=Point(x=3, y=4))
+
+        serializer = Serializer(instance, data={"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}}, partial=True)
+        serializer.is_valid()
+        line = serializer.save()
+
+        self.assertIs(instance, line)
+        self.assertIs(instance.a, line.a)
+        self.assertIs(instance.b, line.b)
+        self.assertDictEqual(da.asdict(line), {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}})
+
+    def test_nested_inplace_with_create(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+
+        instance = Line()
+
+        serializer = Serializer(instance, data={"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, partial=True)
+        serializer.is_valid()
+        line = serializer.save()
+
+        self.assertIs(instance, line)
+        self.assertIsInstance(line.a, Point)
+        self.assertIsInstance(line.b, Point)
         self.assertDictEqual(da.asdict(line), {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}})
