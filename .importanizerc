@@ -1,13 +1,11 @@
 {
-    "add_imports": [
-        "from __future__ import absolute_import, print_function, unicode_literals"
-    ],
-    "length": 120,
-    "groups": [
-        {"type": "stdlib"},
-        {"type": "remainder"},
-        {"type": "packages", "packages": ["django"]},
-        {"type": "packages", "packages": ["rest_framework"]},
-        {"type": "local"}
-    ]
+  "length": 120,
+  "groups": [
+    { "type": "stdlib" },
+    { "type": "remainder" },
+    { "type": "packages", "packages": ["django"] },
+    { "type": "packages", "packages": ["rest_framework"] },
+    { "type": "packages", "packages": ["rest_dataclasses"] },
+    { "type": "local" }
+  ]
 }

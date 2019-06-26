@@ -2,12 +2,13 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import dataclasses as da
 
-from rest_dataclasses.serializers import DataclassSerializer
-
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.test import SimpleTestCase
 
 from rest_framework import fields
 from rest_framework.exceptions import ValidationError
+
+from rest_dataclasses.serializers import DataclassSerializer
 
 
 @da.dataclass
@@ -228,6 +229,59 @@ class TestModelSerializer(SimpleTestCase):
         instance = Line()
 
         serializer = Serializer(instance, data={"a": {}, "b": {}}, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        with self.assertRaises(ValidationError):
+            serializer.save()
+
+    def test_create_star_source(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                fields = ["name"]
+
+        class StarSerializer(DataclassSerializer):
+            user = Serializer(source="*")
+
+            class Meta:
+                model = User
+                fields = ["id", "user"]
+
+        serializer = StarSerializer(data={"user": {"name": "shosca"}, "id": 1})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        self.assertDictEqual(da.asdict(user), {"id": 1, "name": "shosca", "email": None})
+
+    def test_create_source_not_in_validated_data(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Line
+                fields = "__all__"
+
+        serializer = Serializer(data={})
+        serializer.is_valid(raise_exception=True)
+        line = serializer.save()
+
+        self.assertDictEqual(da.asdict(line), {"a": None, "b": None})
+
+    def test_validation_error_on_save(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = User
+                fields = ["name"]
+
+            def perform_update(self, instance, validated_data, errors):
+                raise DjangoValidationError("test")
+
+        class StarSerializer(DataclassSerializer):
+            user = Serializer(source="*")
+
+            class Meta:
+                model = User
+                fields = ["id", "user"]
+
+        serializer = StarSerializer(data={"user": {"name": "shosca"}, "id": 1})
         serializer.is_valid(raise_exception=True)
 
         with self.assertRaises(ValidationError):
