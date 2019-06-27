@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
 import dataclasses as da
+from typing import List
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.test import SimpleTestCase
@@ -28,6 +29,11 @@ class Point:
 class Line:
     a: Point = da.field(default=None)
     b: Point = da.field(default=None)
+
+
+@da.dataclass
+class Geometry:
+    lines: List[Line] = da.field(default=None)
 
 
 class TestModelSerializer(SimpleTestCase):
@@ -286,3 +292,68 @@ class TestModelSerializer(SimpleTestCase):
 
         with self.assertRaises(ValidationError):
             serializer.save()
+
+    def test_nested_list(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Geometry
+                fields = "__all__"
+
+        serializer = Serializer(
+            data={
+                "lines": [
+                    {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}},
+                    {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}},
+                ]
+            }
+        )
+        serializer.is_valid(raise_exception=True)
+        geometry = serializer.save()
+
+        self.assertEqual(len(geometry.lines), 2)
+        self.assertIsInstance(geometry.lines[0], Line)
+        self.assertIsInstance(geometry.lines[1], Line)
+
+        self.assertDictEqual(
+            da.asdict(geometry),
+            {"lines": [{"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}}]},
+        )
+
+    def test_nested_list_no_data(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Geometry
+                fields = "__all__"
+
+        serializer = Serializer(data={})
+        serializer.is_valid(raise_exception=True)
+        geometry = serializer.save()
+
+        self.assertDictEqual(da.asdict(geometry), {"lines": None})
+
+    def test_nested_list_disable_nested_update(self):
+        class Serializer(DataclassSerializer):
+            class Meta:
+                model = Geometry
+                fields = "__all__"
+                extra_kwargs = {"lines": {"allow_nested_updates": False, "allow_create": False}}
+
+        instance = Geometry(lines=[Line(a=Point(x=1, y=2), b=Point(x=3, y=4)), Line(a=Point(x=5, y=6))])
+
+        serializer = Serializer(
+            instance,
+            data={
+                "lines": [
+                    {"a": {"x": 7, "y": 8}, "b": {"x": 9, "y": 10}},
+                    {"a": {"x": 11, "y": 12}, "b": {"x": 13, "y": 14}},
+                ]
+            },
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        geometry = serializer.save()
+        self.assertDictEqual(
+            da.asdict(geometry),
+            {"lines": [{"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, {"a": {"x": 5, "y": 6}, "b": None}]},
+        )
