@@ -2,6 +2,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import copy
 import dataclasses as da
+import itertools
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -177,6 +178,9 @@ class DataclassSerializer(serializers.Serializer):
 
     def build_nested_field(self, field_name, field_info, nested_depth):
         target_model = field_info.type
+        if getattr(target_model, "__origin__", None) == list:
+            assert len(target_model.__args__) == 1, "Nested list fields can only have one generic type"
+            target_model = target_model.__args__[0]
 
         class NestedSerializer(self.__class__):
             class Meta:
@@ -198,6 +202,11 @@ class DataclassSerializer(serializers.Serializer):
 
     def get_kwargs_for_nested_field(self, field_info):
         kwargs = {"required": False}
+        target_model = field_info.type
+        target_model = getattr(target_model, "__origin__", None) or target_model
+
+        if target_model == list:
+            kwargs["many"] = True
 
         extra_kwargs = self.get_extra_kwargs()
         kwargs.update(extra_kwargs.get(field_info.name, {}))
@@ -211,7 +220,7 @@ class DataclassSerializer(serializers.Serializer):
         else:
             setattr(instance, field.source, value)
 
-    def get_object(self, validated_data, instance):
+    def get_object(self, validated_data, instance=None):
         if validated_data is None:
             instance = None
 
@@ -262,6 +271,23 @@ class DataclassSerializer(serializers.Serializer):
                         value = field.perform_update(child_instance, value, errors)
                     else:
                         value = child_instance
+
+                elif isinstance(field, serializers.ListSerializer) and isinstance(field.child, DataclassSerializer):
+                    if field.source not in validated_data:
+                        continue
+
+                    value = []
+                    existing_value = getattr(instance, field.source, []) or []
+
+                    for item, child_instance in itertools.zip_longest(validated_data.get(field.source), existing_value):
+                        child_instance = field.child.get_object(item, child_instance)
+                        if child_instance and (field.child.allow_create or field.child.allow_nested_updates):
+                            v = field.child.perform_update(child_instance, item, errors)
+                        else:
+                            v = child_instance
+
+                        if v:
+                            value.append(v)
 
                 else:
                     if field.source not in validated_data:
