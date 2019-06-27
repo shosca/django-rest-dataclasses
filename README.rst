@@ -1,5 +1,5 @@
 Django REST Dataclasses
-======================
+=======================
 
 |Build Status| |PyPI version| |Coveralls Status|
 
