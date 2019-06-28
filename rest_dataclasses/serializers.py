@@ -2,10 +2,13 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import copy
 import dataclasses as da
+import enum
 import itertools
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+
+from rest_enumfield import EnumField
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -25,6 +28,7 @@ class DataclassSerializer(serializers.Serializer):
         Decimal: fields.DecimalField,
         time: fields.TimeField,
         timedelta: fields.DurationField,
+        enum.Enum: EnumField,
     }
 
     def __init__(self, *args, **kwargs):
@@ -168,13 +172,15 @@ class DataclassSerializer(serializers.Serializer):
     def build_field(self, field_name, dataclass_fields, model, depth):
         field_info = dataclass_fields[field_name]
 
-        if field_info.type in self.serializer_field_mapping:
-            return self.build_standard_field(field_name, field_info)
+        for typ in field_info.type.mro():
+            if typ in self.serializer_field_mapping:
+                field_type = self.serializer_field_mapping[typ]
+                return self.build_standard_field(field_type, field_name, field_info)
 
         return self.build_nested_field(field_name, field_info, depth)
 
-    def build_standard_field(self, field_name, field_info):
-        return self.serializer_field_mapping[field_info.type](**self.get_kwargs_for_field(field_info))
+    def build_standard_field(self, field_type, field_name, field_info):
+        return field_type(**self.get_kwargs_for_field(field_info))
 
     def build_nested_field(self, field_name, field_info, nested_depth):
         target_model = field_info.type
@@ -194,6 +200,9 @@ class DataclassSerializer(serializers.Serializer):
 
     def get_kwargs_for_field(self, field_info):
         kwargs = {"required": False}
+
+        if enum.Enum in field_info.type.mro():
+            kwargs["choices"] = field_info.type
 
         extra_kwargs = self.get_extra_kwargs()
         kwargs.update(extra_kwargs.get(field_info.name, {}))

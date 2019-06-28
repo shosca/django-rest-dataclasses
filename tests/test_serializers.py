@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
 import dataclasses as da
+import enum
 from typing import List
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -10,6 +11,12 @@ from rest_framework import fields
 from rest_framework.exceptions import ValidationError
 
 from rest_dataclasses.serializers import DataclassSerializer
+
+
+class Color(enum.Enum):
+    RED = "red"
+    GREEN = "green"
+    BLUE = "blue"
 
 
 @da.dataclass
@@ -34,6 +41,7 @@ class Line:
 @da.dataclass
 class Geometry:
     lines: List[Line] = da.field(default=None)
+    color: Color = da.field(default=None)
 
 
 class TestModelSerializer(SimpleTestCase):
@@ -301,10 +309,11 @@ class TestModelSerializer(SimpleTestCase):
 
         serializer = Serializer(
             data={
+                "color": "red",
                 "lines": [
                     {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}},
                     {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}},
-                ]
+                ],
             }
         )
         serializer.is_valid(raise_exception=True)
@@ -316,7 +325,13 @@ class TestModelSerializer(SimpleTestCase):
 
         self.assertDictEqual(
             da.asdict(geometry),
-            {"lines": [{"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}}]},
+            {
+                "color": Color.RED,
+                "lines": [
+                    {"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}},
+                    {"a": {"x": 5, "y": 6}, "b": {"x": 7, "y": 8}},
+                ],
+            },
         )
 
     def test_nested_list_no_data(self):
@@ -329,7 +344,7 @@ class TestModelSerializer(SimpleTestCase):
         serializer.is_valid(raise_exception=True)
         geometry = serializer.save()
 
-        self.assertDictEqual(da.asdict(geometry), {"lines": None})
+        self.assertDictEqual(da.asdict(geometry), {"color": None, "lines": None})
 
     def test_nested_list_disable_nested_update(self):
         class Serializer(DataclassSerializer):
@@ -343,10 +358,11 @@ class TestModelSerializer(SimpleTestCase):
         serializer = Serializer(
             instance,
             data={
+                "color": "BLUE",
                 "lines": [
                     {"a": {"x": 7, "y": 8}, "b": {"x": 9, "y": 10}},
                     {"a": {"x": 11, "y": 12}, "b": {"x": 13, "y": 14}},
-                ]
+                ],
             },
             partial=True,
         )
@@ -355,5 +371,8 @@ class TestModelSerializer(SimpleTestCase):
         geometry = serializer.save()
         self.assertDictEqual(
             da.asdict(geometry),
-            {"lines": [{"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, {"a": {"x": 5, "y": 6}, "b": None}]},
+            {
+                "color": Color.BLUE,
+                "lines": [{"a": {"x": 1, "y": 2}, "b": {"x": 3, "y": 4}}, {"a": {"x": 5, "y": 6}, "b": None}],
+            },
         )

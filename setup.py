@@ -36,7 +36,7 @@ setup(
     author=about["__author__"],
     author_email=about["__author_email__"],
     description=about["__description__"],
-    install_requires=["django", "djangorestframework"],
+    install_requires=["django", "djangorestframework", "django-rest-enumfield"],
     license="MIT",
     long_description=read("README.rst"),
     name="django-rest-dataclasses",
