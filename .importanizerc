@@ -5,6 +5,7 @@
     { "type": "remainder" },
     { "type": "packages", "packages": ["django"] },
     { "type": "packages", "packages": ["rest_framework"] },
+    { "type": "packages", "packages": ["rest_enumfield"] },
     { "type": "packages", "packages": ["rest_dataclasses"] },
     { "type": "local" }
   ]
