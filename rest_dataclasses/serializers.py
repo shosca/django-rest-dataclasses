@@ -177,6 +177,13 @@ class DataclassSerializer(serializers.Serializer):
                 field_type = self.serializer_field_mapping[typ]
                 return self.build_standard_field(field_type, field_name, field_info)
 
+        target_model = field_info.type
+        if getattr(target_model, "__origin__", None) == list:
+            return self.build_nested_list_field(field_name, field_info, depth)
+
+        if getattr(target_model, "__origin__", None) == dict:
+            return self.build_nested_dict_field(field_name, field_info, depth)
+
         return self.build_nested_field(field_name, field_info, depth)
 
     def build_standard_field(self, field_type, field_name, field_info):
@@ -184,19 +191,56 @@ class DataclassSerializer(serializers.Serializer):
 
     def build_nested_field(self, field_name, field_info, nested_depth):
         target_model = field_info.type
+
+        nested_serializer = self.build_nested_serializer_class(target_model, nested_depth)
+
+        return type(target_model.__name__ + "Serializer", (nested_serializer,), {})(
+            **self.get_kwargs_for_nested_field(field_info)
+        )
+
+    def build_nested_list_field(self, field_name, field_info, nested_depth):
+        target_model = field_info.type
         if getattr(target_model, "__origin__", None) == list:
             assert len(target_model.__args__) == 1, "Nested list fields can only have one generic type"
             target_model = target_model.__args__[0]
 
+        kwargs = self.get_kwargs_for_nested_field(field_info)
+        kwargs["many"] = True
+
+        nested_serializer = self.build_nested_serializer_class(target_model, nested_depth)
+        return type(target_model.__name__ + "Serializer", (nested_serializer,), {})(**kwargs)
+
+    def build_nested_dict_field(self, field_name, field_info, nested_depth):
+        target_model = field_info.type
+        if getattr(target_model, "__origin__", None) == dict:
+            assert len(target_model.__args__) == 2, "Nested dict fields can only have one generic type"
+            assert target_model.__args__[0] is str, "Nested dict key can only be string"
+            target_model = target_model.__args__[1]
+
+        kwargs = self.get_kwargs_for_nested_field(field_info)
+
+        child_field = None
+        if target_model in self.serializer_field_mapping:
+            child_field = self.serializer_field_mapping[target_model](allow_null=True)
+        else:
+            child_field = type(
+                target_model.__name__ + "Serializer",
+                (self.build_nested_serializer_class(target_model, nested_depth),),
+                {},
+            )(**kwargs)
+
+        assert target_model is not None, "Couldn't figure out nested dict value type"
+
+        return fields.DictField(child=child_field, required=False)
+
+    def build_nested_serializer_class(self, target_model, nested_depth):
         class NestedSerializer(self.__class__):
             class Meta:
                 model = target_model
                 fields = "__all__"  # TODO: figure out what fields
                 depth = max(0, nested_depth - 1)
 
-        return type(str(target_model.__name__ + "Serializer"), (NestedSerializer,), {})(
-            **self.get_kwargs_for_nested_field(field_info)
-        )
+        return NestedSerializer
 
     def get_kwargs_for_field(self, field_info):
         kwargs = {"required": False}
@@ -211,11 +255,6 @@ class DataclassSerializer(serializers.Serializer):
 
     def get_kwargs_for_nested_field(self, field_info):
         kwargs = {"required": False}
-        target_model = field_info.type
-        target_model = getattr(target_model, "__origin__", None) or target_model
-
-        if target_model == list:
-            kwargs["many"] = True
 
         extra_kwargs = self.get_extra_kwargs()
         kwargs.update(extra_kwargs.get(field_info.name, {}))
@@ -281,14 +320,25 @@ class DataclassSerializer(serializers.Serializer):
                     else:
                         value = child_instance
 
-                elif isinstance(field, serializers.ListSerializer) and isinstance(field.child, DataclassSerializer):
-                    if field.source not in validated_data:
-                        continue
+                elif isinstance(field, fields.DictField) and isinstance(field.child, DataclassSerializer):
+                    value = {}
+                    existing_value = getattr(instance, field.source, []) or {}
+                    for key, item in validated_data.get(field.source, {}).items():
+                        child_instance = field.child.get_object(item, existing_value.get(key))
+                        if child_instance and (field.child.allow_create or field.child.allow_nested_updates):
+                            v = field.child.perform_update(child_instance, item, errors)
+                        else:
+                            v = child_instance
+                        if v:
+                            value[key] = v
 
+                elif isinstance(field, serializers.ListSerializer) and isinstance(field.child, DataclassSerializer):
                     value = []
                     existing_value = getattr(instance, field.source, []) or []
 
-                    for item, child_instance in itertools.zip_longest(validated_data.get(field.source), existing_value):
+                    for item, child_instance in itertools.zip_longest(
+                        validated_data.get(field.source, []), existing_value
+                    ):
                         child_instance = field.child.get_object(item, child_instance)
                         if child_instance and (field.child.allow_create or field.child.allow_nested_updates):
                             v = field.child.perform_update(child_instance, item, errors)
