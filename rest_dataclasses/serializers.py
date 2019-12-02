@@ -143,7 +143,7 @@ class DataclassSerializer(serializers.Serializer):
         return fields
 
     def get_default_field_names(self, declared_fields, dataclass_fields):
-        return [f for f in dataclass_fields]
+        return list(dataclass_fields)
 
     def get_extra_kwargs(self):
         extra_kwargs = copy.deepcopy(getattr(self.Meta, "extra_kwargs", {}))
