@@ -1,16 +1,12 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, print_function, unicode_literals
 import dataclasses as da
 import enum
 from typing import Dict, List
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.test import SimpleTestCase
-
+from rest_dataclasses.serializers import DataclassSerializer
 from rest_framework import fields
 from rest_framework.exceptions import ValidationError
-
-from rest_dataclasses.serializers import DataclassSerializer
 
 
 class Color(enum.Enum):
@@ -82,7 +78,9 @@ class TestModelSerializer(SimpleTestCase):
                 fields = "id,name"
 
         serializer = Serializer(data={"id": 1, "name": "shosca", "email": "some@email.com"})
-        with self.assertRaisesMessage(TypeError, 'The `fields` option must be a list or tuple or "__all__". Got str.'):
+        with self.assertRaisesMessage(
+            TypeError, 'The `fields` option must be a list or tuple or "__all__". Got str.',
+        ):
             serializer.is_valid(raise_exception=True)
 
     def test_bad_exclude(self):
@@ -256,7 +254,10 @@ class TestModelSerializer(SimpleTestCase):
             class Meta:
                 model = Line
                 fields = "__all__"
-                extra_kwargs = {"a": {"allow_null": False, "allow_create": False}, "b": {"allow_null": False}}
+                extra_kwargs = {
+                    "a": {"allow_null": False, "allow_create": False},
+                    "b": {"allow_null": False},
+                }
 
         instance = Line()
 

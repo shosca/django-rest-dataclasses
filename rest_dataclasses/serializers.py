@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, print_function, unicode_literals
 import copy
 import dataclasses as da
 import enum
@@ -9,11 +7,9 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-
+from rest_enumfield import EnumField
 from rest_framework import fields, serializers
 from rest_framework.exceptions import ValidationError
-
-from rest_enumfield import EnumField
 
 from .utils import django_to_drf_validation_error
 
