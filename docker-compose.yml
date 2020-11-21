@@ -1,0 +1,31 @@
+version: '3.7'
+
+services:
+  py36: &base
+    image: python:3.6
+    working_dir: /code
+    entrypoint: /code/entrypoint.sh
+    command: tox -f py36
+    volumes:
+    - .:/code
+    - /tmp:/root/.cache
+
+  py37:
+    image: python:3.7
+    command: tox -f py37
+    <<: *base
+
+  py38:
+    image: python:3.8
+    command: tox -f py38
+    <<: *base
+
+  py39:
+    image: python:3.9
+    command: tox -f py39
+    <<: *base
+
+  pypy36:
+    image: pypy:3.6
+    command: tox -f pypy36
+    <<: *base

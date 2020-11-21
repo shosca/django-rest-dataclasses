@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        container:
+          - image: python:3.7
+            toxenv: py37
+          - image: python:3.8
+            toxenv: py38
+          - image: python:3.9
+            toxenv: py39
+
+    container:
+      image: ${{ matrix.container.image }}
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    - name: Tox
+      run: |
+        tox -f ${{ matrix.container.toxenv }}
+    - name: Upload Coverage
+      run: coveralls
+      env:
+        GITHUB_TOKEN: ${{ secrets.github_token }}
+        COVERALLS_FLAG_NAME: ${{ matrix.container.image }}
+        COVERALLS_PARALLEL: true
+
+  finish:
+    needs: build
+    runs-on: ubuntu-latest
+    container: python:3-slim
+    steps:
+    - name: Coveralls Finished
+      run: |
+        pip3 install -U coveralls
+        coveralls --finish
+      env:
+        GITHUB_TOKEN: ${{ secrets.github_token }}
