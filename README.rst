@@ -7,8 +7,8 @@ Django REST Dataclasses
 
 Provides serializers for dataclasses
 
-.. |Build Status| image:: https://travis-ci.com/shosca/django-rest-dataclasses.svg?branch=master
-   :target: https://travis-ci.com/shosca/django-rest-dataclasses
+.. |Build Status| image:: https://github.com/shosca/django-rest-dataclasses/workflows/Build/badge.svg?branch=master
+   :target: https://github.com/shosca/django-rest-dataclasses/actions?query=workflow%3ABuild+branch%3Amaster
 .. |PyPI version| image:: https://badge.fury.io/py/django-rest-dataclasses.svg
    :target: https://badge.fury.io/py/django-rest-dataclasses
 .. |Coveralls Status| image:: https://coveralls.io/repos/github/shosca/django-rest-dataclasses/badge.svg?branch=master

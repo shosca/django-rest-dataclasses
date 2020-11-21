@@ -1,17 +1,20 @@
 -e .
+Sphinx
+coreapi
+coreschema
+coveralls
+flake8
+flake8-bugbear
+flake8-comprehensions
+flake8-django
+gitchangelog
+pre_commit
+pdbpp
 pytest
 pytest-cov
-flake8
-flake8-bugbear; python_version > '2.7'
 simplejson
 sphinx-autobuild
-gitchangelog
-yapf
-pdbpp
-pre_commit
-Sphinx
 sphinx_rtd_theme
-mock; python_version <= '2.7'
 tox
+tox-factor
 tox-pyenv
-coveralls
